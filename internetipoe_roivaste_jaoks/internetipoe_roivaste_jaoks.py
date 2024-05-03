@@ -1,242 +1,246 @@
-﻿import sqlite3
+import sqlite3
 import tkinter as tk
 from tkinter import ttk
+from tkinter import simpledialog
 
-def create_database():
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
+class AndmebaasiHaldur:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Andmebaasi Haldur")
 
-    # Loo tabel Kategooriad
-    c.execute('''CREATE TABLE Kategooriad
-                 (kategooria_id INTEGER PRIMARY KEY,
-                  kategooria_nimi TEXT NOT NULL)''')
+        
+        self.conn = sqlite3.connect('tooted.db')
+        self.c = self.conn.cursor()
+        self.create_database()
 
-    # Loo tabel Brändid
-    c.execute('''CREATE TABLE Brändid
-                 (brändi_id INTEGER PRIMARY KEY,
-                  brändi_nimi TEXT NOT NULL)''')
+        self.create_widgets()
 
-    # Loo tabel Tooted
-    c.execute('''CREATE TABLE Tooted
-                 (toote_id INTEGER PRIMARY KEY,
-                  toote_nimi TEXT NOT NULL,
-                  hind REAL NOT NULL,
-                  kategooria_id INTEGER NOT NULL,
-                  brändi_id INTEGER NOT NULL,
-                  FOREIGN KEY (kategooria_id) REFERENCES Kategooriad(kategooria_id),
-                  FOREIGN KEY (brändi_id) REFERENCES Brändid(brändi_id))''')
+    def create_database(self):
+        
+        self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Tooted'")
+        result = self.c.fetchone()
+        if result is None:
+            
+            self.c.execute('''CREATE TABLE Tooted (
+                                toote_id INTEGER PRIMARY KEY,
+                                toote_nimi TEXT,
+                                hind REAL,
+                                kategooria_id INTEGER,
+                                brändi_id INTEGER,
+                                FOREIGN KEY (kategooria_id) REFERENCES Kategooriad(kategooria_id),
+                                FOREIGN KEY (brändi_id) REFERENCES Brändid(brändi_id)
+                            )''')
+            self.conn.commit()
 
-    conn.commit()
-    conn.close()
+           
+            self.c.execute('''CREATE TABLE IF NOT EXISTS Kategooriad (
+                                kategooria_id INTEGER PRIMARY KEY,
+                                kategooria_nimi TEXT UNIQUE
+                            )''')
+            self.c.execute('''CREATE TABLE IF NOT EXISTS Brändid (
+                                brändi_id INTEGER PRIMARY KEY,
+                                brändi_nimi TEXT UNIQUE
+                            )''')
+            self.conn.commit()
 
-def insert_data():
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
+    def create_widgets(self):
+        self.tree = ttk.Treeview(self.master)
+        self.tree["columns"] = ("toote_nimi", "hind", "kategooria", "bränd")
+        self.tree.heading("#0", text="ID")
+        self.tree.heading("toote_nimi", text="Toote nimi")
+        self.tree.heading("hind", text="Hind")
+        self.tree.heading("kategooria", text="Kategooria")
+        self.tree.heading("bränd", text="Bränd")
+        self.tree.pack()
 
-    # Lisa kategooriad
-    c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", ("Elektroonika",))
-    c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", ("Rõivad",))
-    c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", ("Mööbel",))
+        self.populate_tree()
 
-    # Lisa brändid
-    c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", ("Apple",))
-    c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", ("Nike",))
-    c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", ("IKEA",))
+        
+        button_frame = tk.Frame(self.master)
+        button_frame.pack(side='top')
 
-    # Lisa tooted
-    c.execute("INSERT INTO Tooted (toote_nimi, hind, kategooria_id, brändi_id) VALUES (?, ?, ?, ?)", ("iPhone 12", 799.99, 1, 1))
-    c.execute("INSERT INTO Tooted (toote_nimi, hind, kategooria_id, brändi_id) VALUES (?, ?, ?, ?)", ("Nike Air Force 1", 99.99, 2, 2))
-    c.execute("INSERT INTO Tooted (toote_nimi, hind, kategooria_id, brändi_id) VALUES (?, ?, ?, ?)", ("IKEA Kallax riiulisüsteem", 79.99, 3, 3))
+        add_button = ttk.Button(button_frame, text="Lisa uus toode", command=self.open_add_window)
+        add_button.pack(side='left')
 
-    conn.commit()
-    conn.close()
+        edit_button = ttk.Button(button_frame, text="Muuda valitud toodet", command=self.open_edit_window)
+        edit_button.pack(side='left')
 
-def get_products():
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
+        delete_button = ttk.Button(button_frame, text="Kustuta valitud toode", command=self.delete_selected_toode)
+        delete_button.pack(side='left')
 
-    # Kõik tooted koos kategooria ja brändi infoga
-    c.execute('''SELECT 
-                     Tooted.toote_nimi, 
-                     Tooted.hind, 
-                     Kategooriad.kategooria_nimi, 
-                     Brändid.brändi_nimi
-                 FROM Tooted
-                 JOIN Kategooriad ON Tooted.kategooria_id = Kategooriad.kategooria_id
-                 JOIN Brändid ON Tooted.brändi_id = Brändid.brändi_id''')
-    products = c.fetchall()
-    for product in products:
-        print(f"Toote nimi: {product[0]}, Hind: {product[1]}, Kategooria: {product[2]}, Bränd: {product[3]}")
+        delete_by_category_button = ttk.Button(button_frame, text="Kustuta kategooria järgi", command=self.delete_by_category)
+        delete_by_category_button.pack(side='left')
 
-    # Tooted konkreetses kategoorias
-    c.execute("SELECT Tooted.toote_nimi, Tooted.hind FROM Tooted WHERE Tooted.kategooria_id = ?", (1,))
-    products = c.fetchall()
-    print("\nTooted kategoorias 'Elektroonika':")
-    for product in products:
-        print(f"Toote nimi: {product[0]}, Hind: {product[1]}")
+        delete_by_brand_button = ttk.Button(button_frame, text="Kustuta brändi järgi", command=self.delete_by_brand)
+        delete_by_brand_button.pack(side='left')
 
-    # Tooted konkreetse brändi all
-    c.execute("SELECT Tooted.toote_nimi, Tooted.hind FROM Tooted WHERE Tooted.brändi_id = ?", (2,))
-    products = c.fetchall()
-    print("\nTooted brändi 'Nike' all:")
-    for product in products:
-        print(f"Toote nimi: {product[0]}, Hind: {product[1]}")
+    def populate_tree(self):
+        self.tree.delete(*self.tree.get_children())
+        self.c.execute('''SELECT Tooted.toote_id, Tooted.toote_nimi, Tooted.hind, Kategooriad.kategooria_nimi, Brändid.brändi_nimi 
+                        FROM Tooted 
+                        INNER JOIN Kategooriad ON Tooted.kategooria_id = Kategooriad.kategooria_id 
+                        INNER JOIN Brändid ON Tooted.brändi_id = Brändid.brändi_id''')
+        for row in self.c.fetchall():
+            self.tree.insert("", "end", text=row[0], values=row[1:])
 
-    conn.close()
+    def open_add_window(self):
+        self.add_window = tk.Toplevel(self.master)
+        self.add_window.title("Lisa uus toode")
 
-def add_new_product(toote_nimi, hind, kategooria_id, brändi_id):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO Tooted (toote_nimi, hind, kategooria_id, brändi_id) VALUES (?, ?, ?, ?)", (toote_nimi, hind, kategooria_id, brändi_id))
-    conn.commit()
-    conn.close()
-    print(f"Uus toode '{toote_nimi}' on lisatud andmebaasi.")
+        tk.Label(self.add_window, text="Toote nimi:").grid(row=0, column=0)
+        self.new_toote_nimi = tk.Entry(self.add_window)
+        self.new_toote_nimi.grid(row=0, column=1)
 
-def add_new_category(kategooria_nimi):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", (kategooria_nimi,))
-    conn.commit()
-    conn.close()
-    print(f"Uus kategooria '{kategooria_nimi}' on lisatud andmebaasi.")
+        tk.Label(self.add_window, text="Hind:").grid(row=1, column=0)
+        self.new_toote_hind = tk.Entry(self.add_window)
+        self.new_toote_hind.grid(row=1, column=1)
 
-def add_new_brand(brändi_nimi):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", (brändi_nimi,))
-    conn.commit()
-    conn.close()
-    print(f"Uus bränd '{brändi_nimi}' on lisatud andmebaasi.")
+        tk.Label(self.add_window, text="Kategooria:").grid(row=2, column=0)
+        self.new_kategooria = tk.Entry(self.add_window)
+        self.new_kategooria.grid(row=2, column=1)
 
-def update_product(toote_id, toote_nimi, hind, kategooria_id, brändi_id):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("UPDATE Tooted SET toote_nimi = ?, hind = ?, kategooria_id = ?, brändi_id = ? WHERE toote_id = ?", (toote_nimi, hind, kategooria_id, brändi_id, toote_id))
-    conn.commit()
-    conn.close()
-    print(f"Toote '{toote_nimi}' informatsioon on uuendatud.")
+        tk.Label(self.add_window, text="Bränd:").grid(row=3, column=0)
+        self.new_bränd = tk.Entry(self.add_window)
+        self.new_bränd.grid(row=3, column=1)
 
-def update_category(kategooria_id, kategooria_nimi):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("UPDATE Kategooriad SET kategooria_nimi = ? WHERE kategooria_id = ?", (kategooria_nimi, kategooria_id))
-    conn.commit()
-    conn.close()
-    print(f"Kategooria '{kategooria_nimi}' informatsioon on uuendatud.")
+        add_button = ttk.Button(self.add_window, text="Lisa", command=self.add_toode)
+        add_button.grid(row=4, columnspan=2)
 
-def update_brand(brändi_id, brändi_nimi):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("UPDATE Brändid SET brändi_nimi = ? WHERE brändi_id = ?", (brändi_nimi, brändi_id))
-    conn.commit()
-    conn.close()
-    print(f"Brändi '{brändi_nimi}' informatsioon on uuendatud.")
+    def add_toode(self):
+        toote_nimi = self.new_toote_nimi.get()
+        hind = float(self.new_toote_hind.get())
+        kategooria = self.new_kategooria.get()
+        bränd = self.new_bränd.get()
 
-def delete_products_by_category(kategooria_id):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM Tooted WHERE kategooria_id = ?", (kategooria_id,))
-    conn.commit()
-    conn.close()
-    print(f"Kõik tooted kategooriast {kategooria_id} on kustutatud.")
+        
+        self.c.execute("SELECT kategooria_id FROM Kategooriad WHERE kategooria_nimi=?", (kategooria,))
+        result = self.c.fetchone()
+        if result is None:
+            self.c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", (kategooria,))
+            self.conn.commit()
+            kategooria_id = self.c.lastrowid
+        else:
+            kategooria_id = result[0]
 
-def delete_products_by_brand(brändi_id):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM Tooted WHERE brändi_id = ?", (brändi_id,))
-    conn.commit()
-    conn.close()
-    print(f"Kõik tooted brändist {brändi_id} on kustutatud.")
+        
+        self.c.execute("SELECT brändi_id FROM Brändid WHERE brändi_nimi=?", (bränd,))
+        result = self.c.fetchone()
+        if result is None:
+            self.c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", (bränd,))
+            self.conn.commit()
+            brändi_id = self.c.lastrowid
+        else:
+            brändi_id = result[0]
 
-def drop_and_recreate_table(table_name):
-    conn = sqlite3.connect('products_database.db')
-    c = conn.cursor()
+        
+        self.c.execute("INSERT INTO Tooted (toote_nimi, hind, kategooria_id, brändi_id) VALUES (?, ?, ?, ?)",
+                       (toote_nimi, hind, kategooria_id, brändi_id))
+        self.conn.commit()
 
-    # Kustuta tabel
-    c.execute(f"DROP TABLE IF EXISTS {table_name}")
-    conn.commit()
+        self.populate_tree()
+        self.add_window.destroy()
 
-    # Taasta tabel
-    if table_name == "Tooted":
-        c.execute('''CREATE TABLE Tooted
-                     (toote_id INTEGER PRIMARY KEY,
-                      toote_nimi TEXT NOT NULL,
-                      hind REAL NOT NULL,
-                      kategooria_id INTEGER NOT NULL,
-                      brändi_id INTEGER NOT NULL,
-                      FOREIGN KEY (kategooria_id) REFERENCES Kategooriad(kategooria_id),
-                      FOREIGN KEY (brändi_id) REFERENCES Brändid(brändi_id))''')
-    elif table_name == "Kategooriad":
-        c.execute('''CREATE TABLE Kategooriad
-                     (kategooria_id INTEGER PRIMARY KEY,
-                      kategooria_nimi TEXT NOT NULL)''')
-    elif table_name == "Brändid":
-        c.execute('''CREATE TABLE Brändid
-                     (brändi_id INTEGER PRIMARY KEY,
-                      brändi_nimi TEXT NOT NULL)''')
+    def open_edit_window(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            return
+        item = self.tree.item(selected_item)
+        toode_id = item['text']
+        toode_info = item['values']
+        if not toode_info:
+            return
 
-    conn.commit()
-    conn.close()
-    print(f"Tabel '{table_name}' on kustutatud ja taastatud.")
+        self.edit_window = tk.Toplevel(self.master)
+        self.edit_window.title("Muuda toodet")
 
-def create_gui():
-    root = tk.Tk()
-    root.title("Toodete haldamine")
+        tk.Label(self.edit_window, text="Uus toote nimi:").grid(row=0, column=0)
+        self.edit_toote_nimi = tk.Entry(self.edit_window)
+        self.edit_toote_nimi.insert(0, toode_info[0])
+        self.edit_toote_nimi.grid(row=0, column=1)
 
-    # Tabelid
-    tree_products = ttk.Treeview(root)
-    tree_products.pack(pady=20)
+        tk.Label(self.edit_window, text="Uus hind:").grid(row=1, column=0)
+        self.edit_toote_hind = tk.Entry(self.edit_window)
+        self.edit_toote_hind.insert(0, toode_info[1])
+        self.edit_toote_hind.grid(row=1, column=1)
 
-    tree_categories = ttk.Treeview(root)
-    tree_categories.pack(pady=20)
+        tk.Label(self.edit_window, text="Uus kategooria:").grid(row=2, column=0)
+        self.edit_kategooria = tk.Entry(self.edit_window)
+        self.edit_kategooria.insert(0, toode_info[2])
+        self.edit_kategooria.grid(row=2, column=1)
 
-    tree_brands = ttk.Treeview(root)
-    tree_brands.pack(pady=20)
+        tk.Label(self.edit_window, text="Uus bränd:").grid(row=3, column=0)
+        self.edit_bränd = tk.Entry(self.edit_window)
+        self.edit_bränd.insert(0, toode_info[3])
+        self.edit_bränd.grid(row=3, column=1)
 
-    # Sisestusväljade loomine
-    product_name_label = tk.Label(root, text="Toote nimi:")
-    product_name_label.pack(pady=5)
-    product_name_entry = tk.Entry(root)
-    product_name_entry.pack(pady=5)
+        edit_button = ttk.Button(self.edit_window, text="Salvesta muudatused", command=lambda: self.save_edited_toode(toode_id))
+        edit_button.grid(row=4, columnspan=2)
 
-    product_price_label = tk.Label(root, text="Toote hind:")
-    product_price_label.pack(pady=5)
-    product_price_entry = tk.Entry(root)
-    product_price_entry.pack(pady=5)
+    def save_edited_toode(self, toode_id):
+        uus_toote_nimi = self.edit_toote_nimi.get()
+        uus_hind = float(self.edit_toote_hind.get())
+        uus_kategooria = self.edit_kategooria.get()
+        uus_bränd = self.edit_bränd.get()
 
-    product_category_label = tk.Label(root, text="Kategooria ID:")
-    product_category_label.pack(pady=5)
-    product_category_entry = tk.Entry(root)
-    product_category_entry.pack(pady=5)
+        
+        self.c.execute("SELECT kategooria_id FROM Kategooriad WHERE kategooria_nimi=?", (uus_kategooria,))
+        result = self.c.fetchone()
+        if result is None:
+            self.c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", (uus_kategooria,))
+            self.conn.commit()
+            uus_kategooria_id = self.c.lastrowid
+        else:
+            uus_kategooria_id = result[0]
 
-    product_brand_label = tk.Label(root, text="Brändi ID:")
-    product_brand_label.pack(pady=5)
-    product_brand_entry = tk.Entry(root)
-    product_brand_entry.pack(pady=5)
+        
+        self.c.execute("SELECT brändi_id FROM Brändid WHERE brändi_nimi=?", (uus_bränd,))
+        result = self.c.fetchone()
+        if result is None:
+            self.c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", (uus_bränd,))
+            self.conn.commit()
+            uus_brändi_id = self.c.lastrowid
+        else:
+            uus_brändi_id = result[0]
 
-    # Nuppude loomine
-    add_product_button = tk.Button(root, text="Lisa uus toode", command=lambda: add_new_product(
-        product_name_entry.get(),
-        float(product_price_entry.get()),
-        int(product_category_entry.get()),
-        int(product_brand_entry.get())
-    ))
-    add_product_button.pack(pady=10)
+        
+        self.c.execute('''UPDATE Tooted 
+                          SET toote_nimi=?, hind=?, kategooria_id=?, brändi_id=? 
+                          WHERE toote_id=?''',
+                       (uus_toote_nimi, uus_hind, uus_kategooria_id, uus_brändi_id, toode_id))
+        self.conn.commit()
 
-    add_category_button = tk.Button(root, text="Lisa uus kategooria", command=lambda: add_new_category(
-        category_name_entry.get()
-    ))
-    add_category_button.pack(pady=10)
+        self.populate_tree()
+        self.edit_window.destroy()
 
-    add_brand_button = tk.Button(root, text="Lisa uus bränd", command=lambda: add_new_brand(
-        brand_name_entry.get()
-    ))
-    add_brand_button.pack(pady=10)
+    def delete_selected_toode(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            return
+        toode_id = self.tree.item(selected_item)['text']
+        self.c.execute("DELETE FROM Tooted WHERE toote_id=?", (toode_id,))
+        self.conn.commit()
+        self.populate_tree()
 
-    root.mainloop()
+    def delete_by_category(self):
+        category_name = simpledialog.askstring("Delete by Category", "Sisestage kustutatava kategooria nimi:")
+        if category_name:
+            self.delete_by_category_from_db(category_name)
 
-# Käivita programm
-create_database()
-insert_data()
-get_products()
-create_gui()
+    def delete_by_brand(self):
+        brand_name = simpledialog.askstring("Delete by Brand", "Sisestage kustutatava brändi nimi:")
+        if brand_name:
+            self.delete_by_brand_from_db(brand_name)
+
+    def delete_by_category_from_db(self, category_name):
+        self.c.execute("DELETE FROM Tooted WHERE kategooria_id IN (SELECT kategooria_id FROM Kategooriad WHERE kategooria_nimi=?)", (category_name,))
+        self.conn.commit()
+        self.populate_tree()
+
+    def delete_by_brand_from_db(self, brand_name):
+        self.c.execute("DELETE FROM Tooted WHERE brändi_id IN (SELECT brändi_id FROM Brändid WHERE brändi_nimi=?)", (brand_name,))
+        self.conn.commit()
+        self.populate_tree()
+
+root = tk.Tk()
+app = AndmebaasiHaldur(root)
+root.mainloop()
