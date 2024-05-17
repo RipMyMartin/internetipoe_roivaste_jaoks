@@ -1,7 +1,7 @@
 import sqlite3
 import tkinter as tk
 from tkinter import ttk
-from tkinter import simpledialog, messagebox
+from tkinter import messagebox
 
 
 def create_database(conn):
@@ -48,11 +48,11 @@ def add_new_category(conn, category_name, category_combobox, add_category_window
         c.execute("INSERT INTO Kategooriad (kategooria_nimi) VALUES (?)", (category_name,))
         conn.commit()
         category_combobox['values'] = get_categories(conn)
-        category_combobox.set(category_name)  # Установим новую категорию в Combobox
-        category_combobox.update()  # Обновим Combobox, чтобы отобразить новую категорию
-        add_category_window.destroy()  # Закрываем окно добавления новой категории
+        category_combobox.set(category_name)  
+        category_combobox.update()  
+        add_category_window.destroy()  
     else:
-        messagebox.showerror("Error", "Kategooria juba eksisteerib.")  # Показываем сообщение об ошибке, если категория уже существует
+        messagebox.showerror("Error", "Kategooria juba eksisteerib.") 
 
 def add_new_brand(conn, brand_name, brand_combobox, add_brand_window):
     c = conn.cursor()
@@ -62,25 +62,24 @@ def add_new_brand(conn, brand_name, brand_combobox, add_brand_window):
         c.execute("INSERT INTO Brändid (brändi_nimi) VALUES (?)", (brand_name,))
         conn.commit()
         brand_combobox['values'] = get_brands(conn)
-        brand_combobox.set(brand_name)  # Установим новый бренд в Combobox
-        brand_combobox.update()  # Обновим Combobox, чтобы отобразить новый бренд
-        add_brand_window.destroy()  # Закрываем окно добавления нового бренда
+        brand_combobox.set(brand_name) 
+        brand_combobox.update() 
+        add_brand_window.destroy()  
     else:
-        messagebox.showerror("Error", "Bränd juba eksisteerib.")  # Показываем сообщение об ошибке, если бренд уже существует
-
+        messagebox.showerror("Error", "Bränd juba eksisteerib.")  
 
 def add_new_brand_window(conn, brand_combobox):
     add_brand_window = tk.Toplevel()
     add_brand_window.title("Lisa uus bränd")
 
-    tk.Label(add_brand_window, text="Uus brändи ними:").grid(row=0, column=0)
+    tk.Label(add_brand_window, text="Uus brändи nimi:").grid(row=0, column=0)
     new_brand_name_entry = tk.Entry(add_brand_window)
     new_brand_name_entry.grid(row=0, column=1)
 
     add_button = ttk.Button(add_brand_window, text="Lisa", command=lambda: add_new_brand(conn, new_brand_name_entry.get(), brand_combobox, add_brand_window))
     add_button.grid(row=1, columnspan=2)
 
-    return add_brand_window  # Возвращаем окно добавления нового бренда
+    return add_brand_window  
 
 def add_new_category_window(conn, category_combobox):
     add_category_window = tk.Toplevel()
@@ -93,8 +92,7 @@ def add_new_category_window(conn, category_combobox):
     add_button = ttk.Button(add_category_window, text="Lisa", command=lambda: add_new_category(conn, new_category_name_entry.get(), category_combobox, add_category_window))
     add_button.grid(row=1, columnspan=2)
 
-    return add_category_window  # Возвращаем окно добавления новой категории
-
+    return add_category_window  
 
 def open_add_window(conn, tree, new_kategooria, new_brand):
     add_window = tk.Toplevel()
@@ -121,14 +119,12 @@ def open_add_window(conn, tree, new_kategooria, new_brand):
 
 def add_toode(conn, toote_nimi, hind, kategooria, bränd, add_window, tree):
     if toote_nimi.strip() == '' or hind.strip() == '':
-        # Проверка на пустые поля
         messagebox.showerror("Error", "Toote nimi ja hind ei tohi olla tühjad.")
         return
 
     try:
         hind = float(hind)
     except ValueError:
-        # Если не удается преобразовать в число
         messagebox.showerror("Error", "Hind peab olema number.")
         return
 
@@ -156,8 +152,8 @@ def add_toode(conn, toote_nimi, hind, kategooria, bränd, add_window, tree):
                 (toote_nimi, hind, kategooria_id, brändi_id))
     conn.commit()
 
-    populate_tree(tree, conn)  # Обновляем отображение данных
-    add_window.destroy()  # Закрываем окно "Lisa uus toode"
+    populate_tree(tree, conn)
+    add_window.destroy()
 
 def delete_by_category_from_db(conn, tree, category_combobox):
     category_name = category_combobox.get()
@@ -177,7 +173,9 @@ def delete_category_from_db(conn, tree, category_combobox):
         c.execute("DELETE FROM Kategooriad WHERE kategooria_nimi=?", (category_name,))
         conn.commit()
         populate_tree(tree, conn)
-        category_combobox['values'] = get_categories(conn)  # Обновляем значения в Combobox категорий
+        category_combobox['values'] = get_categories(conn)  
+        category_combobox.set("")  
+
 
 def delete_brand_from_db(conn, tree, brand_combobox):
     brand_name = brand_combobox.get()
@@ -187,7 +185,8 @@ def delete_brand_from_db(conn, tree, brand_combobox):
         c.execute("DELETE FROM Brändid WHERE brändi_nimi=?", (brand_name,))
         conn.commit()
         populate_tree(tree, conn)
-        brand_combobox['values'] = get_brands(conn)  # Обновляем значения в Combobox брендов
+        brand_combobox['values'] = get_brands(conn)  
+        brand_combobox.set("")
 
 
 def get_categories(conn):
@@ -238,11 +237,18 @@ def main():
     delete_brand_button = ttk.Button(button_frame, text="Kustuta brändi järgi", command=lambda: delete_by_brand_from_db(conn, tree, new_brand))
     delete_brand_button.pack(side='left')
 
+    new_kategooria_label = tk.Label(root, text="Valige kategooria:")
+    new_kategooria_label.pack()
+
     new_kategooria = ttk.Combobox(root, values=get_categories(conn))
     new_kategooria.pack()
 
+    new_brand_label = tk.Label(root, text="Valige bränd:")
+    new_brand_label.pack()
+
     new_brand = ttk.Combobox(root, values=get_brands(conn))
     new_brand.pack()
+
 
     root.mainloop()
 
